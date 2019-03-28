@@ -5,14 +5,21 @@ libc_inc="@INCDIR@"
 libc_lib="@LIBDIR@"
 thisdir="`cd "$(dirname "$0")"; pwd`"
 
+cleared=
+
 # prevent clang from running the linker (and erroring) on no input.
 sflags=
 eflags=
+dniflags=
 for x ; do
+    test "$cleared" || set -- ; cleared=1
+
     case "$x" in
+        --dni) dniflags=-l-dni; continue ;;
         -l*) input=1 ;;
         *) input= ;;
     esac
+    set -- "$@" "$x"
     if test "$input" ; then
         sflags="-l-user-start"
         eflags="-l-user-end"
@@ -29,6 +36,7 @@ exec $cc \
     -isystem "$libc_inc" \
     -L-user-start \
     $sflags \
+    $dniflags \
     "$@" \
     $eflags \
     -L"$libc_lib" \

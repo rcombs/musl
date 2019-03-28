@@ -21,7 +21,7 @@
 hidden void _dlstart_c(size_t *sp, size_t *dynv)
 {
 	size_t i, aux[AUX_CNT], dyn[DYN_CNT];
-	size_t *rel, rel_size, base;
+	size_t *rel, rel_size, base, loader_phdr;
 
 	int argc = *sp;
 	char **argv = (void *)(sp+1);
@@ -41,6 +41,13 @@ hidden void _dlstart_c(size_t *sp, size_t *dynv)
 		 * space and moving the extra fdpic arguments to the stack
 		 * vector where they are easily accessible from C. */
 		segs = ((struct fdpic_loadmap *)(sp[-1] ? sp[-1] : sp[-2]))->segs;
+		if (aux[AT_BASE]) {
+			Ehdr *eh = (void*)aux[AT_BASE];
+			for (i = 0; eh->e_phoff - segs[i].p_vaddr >= segs[i].p_memsz; i++);
+			loader_phdr = (eh->e_phoff - segs[i].p_vaddr + segs[i].addr);
+		} else {
+			loader_phdr = aux[AT_PHDR];
+		}
 	} else {
 		/* If dynv is null, the entry point was started from loader
 		 * that is not fdpic-aware. We can assume normal fixed-
@@ -55,6 +62,7 @@ hidden void _dlstart_c(size_t *sp, size_t *dynv)
 		segs[0].p_memsz = -1;
 		Ehdr *eh = (void *)base;
 		Phdr *ph = (void *)(base + eh->e_phoff);
+		loader_phdr = (size_t)ph;
 		size_t phnum = eh->e_phnum;
 		size_t phent = eh->e_phentsize;
 		while (phnum-- && ph->p_type != PT_DYNAMIC)
@@ -69,13 +77,42 @@ hidden void _dlstart_c(size_t *sp, size_t *dynv)
 
 #if DL_FDPIC
 	for (i=0; i<DYN_CNT; i++) {
-		if (i==DT_RELASZ || i==DT_RELSZ) continue;
+		if (i==DT_RELASZ || i==DT_RELSZ || i==DT_RPATH || i==DT_RUNPATH) continue;
 		if (!dyn[i]) continue;
 		for (j=0; dyn[i]-segs[j].p_vaddr >= segs[j].p_memsz; j++);
 		dyn[i] += segs[j].addr - segs[j].p_vaddr;
 	}
 	base = 0;
+#else
+	/* If the dynamic linker is invoked as a command, its load
+	 * address is not available in the aux vector. Instead, compute
+	 * the load address as the difference between &_DYNAMIC and the
+	 * virtual address in the PT_DYNAMIC program header. */
+	base = aux[AT_BASE];
+	if (!base) {
+		size_t phnum = aux[AT_PHNUM];
+		size_t phentsize = aux[AT_PHENT];
+		Phdr *ph = (void *)aux[AT_PHDR];
+		for (i=phnum; i--; ph = (void *)((char *)ph + phentsize)) {
+			if (ph->p_type == PT_DYNAMIC) {
+				base = (size_t)dynv - ph->p_vaddr;
+				break;
+			}
+		}
+	}
+	loader_phdr = base + ((Ehdr*)base)->e_phoff;
+#endif
 
+#ifdef DL_DNI
+	/* If AT_PHDR doesn't match the PHDR in AT_BASE, then we've been loaded as a
+	 * dynamic executable and ld.so has already been run, either by the kernel,
+	 * or by dcrt. This means relocs are already finished (and doing them again
+	 * would break DT_RELs), so we can just skip to the stage-2 jump. */
+	if (aux[AT_PHDR] != loader_phdr)
+		goto skip_relocs;
+#endif
+
+#if DL_FDPIC
 	const Sym *syms = (void *)dyn[DT_SYMTAB];
 
 	rel = (void *)dyn[DT_RELA];
@@ -97,23 +134,6 @@ hidden void _dlstart_c(size_t *sp, size_t *dynv)
 		}
 	}
 #else
-	/* If the dynamic linker is invoked as a command, its load
-	 * address is not available in the aux vector. Instead, compute
-	 * the load address as the difference between &_DYNAMIC and the
-	 * virtual address in the PT_DYNAMIC program header. */
-	base = aux[AT_BASE];
-	if (!base) {
-		size_t phnum = aux[AT_PHNUM];
-		size_t phentsize = aux[AT_PHENT];
-		Phdr *ph = (void *)aux[AT_PHDR];
-		for (i=phnum; i--; ph = (void *)((char *)ph + phentsize)) {
-			if (ph->p_type == PT_DYNAMIC) {
-				base = (size_t)dynv - ph->p_vaddr;
-				break;
-			}
-		}
-	}
-
 	/* MIPS uses an ugly packed form for GOT relocations. Since we
 	 * can't make function calls yet and the code is tiny anyway,
 	 * it's simply inlined here. */
@@ -143,6 +163,9 @@ hidden void _dlstart_c(size_t *sp, size_t *dynv)
 #endif
 
 	stage2_func dls2;
+#ifdef DL_DNI
+skip_relocs:
+#endif
 	GETFUNCSYM(&dls2, __dls2, base+dyn[DT_PLTGOT]);
 	dls2((void *)base, sp);
 }

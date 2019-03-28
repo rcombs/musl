@@ -7,6 +7,18 @@ shared=
 userlinkdir=
 userlink=
 
+Scrt="$libc_lib/Scrt1.o"
+dynamic_linker_args="-dynamic-linker \"$ldso\""
+
+for x ; do
+    case "$x" in
+        -l-dni)
+            dynamic_linker_args="-no-dynamic-linker"
+            Scrt="$libc_lib/dcrt1.o"
+            ;;
+    esac
+done
+
 for x ; do
     test "$cleared" || set -- ; cleared=1
 
@@ -42,10 +54,13 @@ for x ; do
             ;;
         -sysroot=*|--sysroot=*)
             ;;
+        $libc_lib/Scrt1.o)
+            set -- "$@" $Scrt
+            ;;
         *)
             set -- "$@" "$x"
             ;;
     esac
 done
 
-exec $($cc -print-prog-name=ld) -nostdlib "$@" -lc -dynamic-linker "$ldso"
+exec $($cc -print-prog-name=ld) -nostdlib "$@" -lc "$dynamic_linker_args"
