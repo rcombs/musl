@@ -1849,6 +1849,22 @@ void __dls3(size_t *sp, size_t *auxv)
 			}
 			dprintf(1, "\t%s (%p)\n", ldso.name, ldso.base);
 		}
+
+		// Make it look to the app as if it was loaded by the kernel
+		for (i=0; auxv[i]; i+=2) {
+			if (auxv[i] == AT_BASE)
+				auxv[i + 1] = (size_t)ldso.base;
+			if (auxv[i] == AT_PHDR)
+				auxv[i + 1] = (size_t)app.phdr;
+			if (auxv[i] == AT_ENTRY)
+				auxv[i + 1] = aux[AT_ENTRY];
+			if (auxv[i] == AT_PHNUM)
+				auxv[i + 1] = app.phnum;
+			if (auxv[i] == AT_PHENT)
+				auxv[i + 1] = app.phentsize;
+			if (auxv[i] == AT_EXECFN)
+				auxv[i + 1] = (size_t)app.name;
+		}
 	}
 	if (app.tls.size) {
 		libc.tls_head = tls_tail = &app.tls;
