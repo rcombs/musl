@@ -1006,13 +1006,14 @@ static struct dso *load_library(const char *name, struct dso *needed_by)
 	}
 
 	/* Catch and block attempts to reload the implementation itself */
-	if (name[0]=='l' && name[1]=='i' && name[2]=='b') {
+	if ((name[0]=='l' && name[1]=='i' && name[2]=='b') ||
+	    (name[0]=='l' && name[1]=='d' && name[2]=='-')) {
 		static const char reserved[] =
-			"c.pthread.rt.m.dl.util.xnet.";
+			"libc.libpthread.librt.libm.libdl.libutil.libxnet.ld-linux.ld-linux-" LDSO_ARCH ".";
 		const char *rp, *next;
 		for (rp=reserved; *rp; rp=next) {
 			next = strchr(rp, '.') + 1;
-			if (strncmp(name+3, rp, next-rp) == 0)
+			if (strncmp(name, rp, next-rp) == 0)
 				break;
 		}
 		if (*rp) {
