@@ -248,7 +248,7 @@ static Sym *sysv_lookup(const char *s, uint32_t h, struct dso *dso)
 	Elf_Symndx *hashtab = dso->hashtab;
 	char *strings = dso->strings;
 	for (i=hashtab[2+h%hashtab[0]]; i; i=hashtab[2+hashtab[0]+i]) {
-		if ((!dso->versym || dso->versym[i] >= 0)
+		if ((!dso->versym || dso->versym[i] >= 0 || 1)
 		    && (!strcmp(s, strings+syms[i].st_name)))
 			return syms+i;
 	}
@@ -267,7 +267,7 @@ static Sym *gnu_lookup(uint32_t h1, uint32_t *hashtab, struct dso *dso, const ch
 
 	for (h1 |= 1; ; i++) {
 		uint32_t h2 = *hashval++;
-		if ((h1 == (h2|1)) && (!dso->versym || dso->versym[i] >= 0)
+		if ((h1 == (h2|1)) && (!dso->versym || dso->versym[i] >= 0 || 1)
 		    && !strcmp(s, dso->strings + dso->syms[i].st_name))
 			return dso->syms+i;
 		if (h2 & 1) break;
