@@ -16,7 +16,7 @@ hidden int __pthread_mutex_timedlock(pthread_mutex_t *restrict, const struct tim
 hidden int __pthread_mutex_unlock(pthread_mutex_t *);
 hidden int __private_cond_signal(pthread_cond_t *, int);
 hidden int __pthread_cond_timedwait(pthread_cond_t *restrict, pthread_mutex_t *restrict, const struct timespec *restrict);
-hidden int __pthread_key_create(pthread_key_t *, void (*)(void *));
+int __pthread_key_create(pthread_key_t *, void (*)(void *));
 hidden int __pthread_key_delete(pthread_key_t);
 hidden int __pthread_rwlock_rdlock(pthread_rwlock_t *);
 hidden int __pthread_rwlock_tryrdlock(pthread_rwlock_t *);
