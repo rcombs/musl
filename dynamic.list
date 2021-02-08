@@ -25,6 +25,9 @@ __tzname;
 signgam;
 __signgam;
 
+__syscall_max;
+__syscall_check_enabled;
+
 optarg;
 optind;
 opterr;

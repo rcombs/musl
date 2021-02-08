@@ -39,6 +39,18 @@ void __init_libc(char **envp, char *pn)
 	__init_tls(aux);
 	__init_ssp((void *)aux[AT_RANDOM]);
 
+#ifdef SYSCALL_MAX_SEMIDYN
+	const char *env1;
+	if ((env1 = getenv("SYSCALL_MAX_ENABLED")))
+		__syscall_check_enabled = atoi(env1);
+#endif
+
+#ifdef SYSCALL_MAX_DYN
+	const char *env2;
+	if ((env2 = getenv("SYSCALL_MAX")))
+		__syscall_max = atoi(env2);
+#endif
+
 	if (aux[AT_UID]==aux[AT_EUID] && aux[AT_GID]==aux[AT_EGID]
 		&& !aux[AT_SECURE]) return;
 

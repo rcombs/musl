@@ -41,7 +41,32 @@ hidden long __syscall_ret(unsigned long),
 #define __SYSCALL_CONCAT(a,b) __SYSCALL_CONCAT_X(a,b)
 #define __SYSCALL_DISP(b,...) __SYSCALL_CONCAT(b,__SYSCALL_NARGS(__VA_ARGS__))(__VA_ARGS__)
 
-#define __syscall(...) __SYSCALL_DISP(__syscall,__VA_ARGS__)
+#ifdef SYSCALL_MAX_SEMIDYN
+extern int __syscall_check_enabled;
+#endif
+#ifdef SYSCALL_MAX_DYN
+extern syscall_arg_t __syscall_max;
+#endif
+
+static inline int check_syscall(syscall_arg_t n)
+{
+#ifdef SYSCALL_MAX_NB
+  if (n > SYSCALL_MAX_NB)
+    return 0;
+#endif
+#ifdef SYSCALL_MAX_SEMIDYN
+  if (n > SYSCALL_MAX_SEMIDYN && __syscall_check_enabled)
+    return 0;
+#endif
+#ifdef SYSCALL_MAX_DYN
+  if (n > __syscall_max)
+    return 0;
+#endif
+  return 1;
+}
+
+#define __SYSCALL_FIRST(a, ...) a
+#define __syscall(...) (check_syscall(__SYSCALL_FIRST(__VA_ARGS__)) ? __SYSCALL_DISP(__syscall, __VA_ARGS__) : (long)-ENOSYS)
 #define syscall(...) __syscall_ret(__syscall(__VA_ARGS__))
 
 #define socketcall(nm,a,b,c,d,e,f) __syscall_ret(__socketcall(nm,a,b,c,d,e,f))
