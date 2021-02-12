@@ -51,6 +51,7 @@ static inline int crt_mprotect(void *addr, size_t len, int prot)
 
 #define crt_read(fd, buf, size) __syscall(SYS_read, fd, buf, size)
 #define crt_pread(fd, buf, size, ofs) __syscall(SYS_pread, fd, buf, size, __SYSCALL_LL_PRW(ofs))
+#define crt_write(fd, buf, size) __syscall(SYS_write, fd, buf, size)
 
 #define map_failed(val) ((unsigned long)val > -4096UL)
 
@@ -185,7 +186,6 @@ static inline void *map_library(int fd)
 	}
 	return map;
 error:
-	for(;;) a_crash();
 	return 0;
 }
 
@@ -283,6 +283,9 @@ static size_t find_linker(char *outbuf, size_t bufsize, const char *this_path, s
 	return sizeof(LDSO_PATHNAME);
 }
 
+#define _ERROR(str) { if (!secure) crt_write(2, str, sizeof(str) - 1); goto error; }
+#define ERROR(str) _ERROR("DCRT: " str "\n")
+
 hidden _Noreturn void __dls2(unsigned char *base, size_t *p)
 {
 	int argc = p[0];
@@ -325,18 +328,18 @@ hidden _Noreturn void __dls2(unsigned char *base, size_t *p)
 
 	fd = __sys_open2(, linker_path, O_RDONLY);
 	if (fd < 0)
-		goto error;
+		ERROR("Failed to open ldso")
 
 	loader_hdr = map_library(fd);
 	if (!loader_hdr)
-		goto error;
+		ERROR("Failed to map ldso")
 
 	__syscall(SYS_close, fd);
 
 	// Copy the program headers into an anonymous mapping
 	new_hdr = crt_mmap(0, (aux[AT_PHENT] * (aux[AT_PHNUM] + 2) + linker_len + PAGE_SIZE - 1) & -PAGE_SIZE, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 	if (map_failed(new_hdr))
-		goto error;
+		ERROR("Failed to map new phdrs")
 
 	// Point it back at the original kernel-provided base
 	new_hdr->p_type = PT_PHDR;
@@ -359,7 +362,7 @@ hidden _Noreturn void __dls2(unsigned char *base, size_t *p)
 	}
 
 	if (crt_mprotect(new_hdr, aux[AT_PHENT] * (aux[AT_PHNUM] + 2) + linker_len, PROT_READ))
-		goto error;
+		ERROR("Failed to mprotect new phdrs")
 
 	for (i=0; auxv[i]; i+=2) {
 		if (auxv[i] == AT_BASE)
