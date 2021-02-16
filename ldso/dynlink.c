@@ -1008,10 +1008,11 @@ static struct dso *load_library(const char *name, struct dso *needed_by)
 	/* Catch and block attempts to reload the implementation itself */
 	if ((name[0]=='l' && name[1]=='i' && name[2]=='b') ||
 	    (name[0]=='l' && name[1]=='d' && name[2]=='-')) {
+		unsigned count = 0;
 		static const char reserved[] =
 			"libc.libpthread.librt.libm.libdl.libutil.libxnet.ld-linux.ld-linux-" LDSO_ARCH ".";
 		const char *rp, *next;
-		for (rp=reserved; *rp; rp=next) {
+		for (rp=reserved; *rp; rp=next, count++) {
 			next = strchr(rp, '.') + 1;
 			if (strncmp(name, rp, next-rp) == 0)
 				break;
@@ -1021,7 +1022,7 @@ static struct dso *load_library(const char *name, struct dso *needed_by)
 				/* Track which names have been resolved
 				 * and only report each one once. */
 				static unsigned reported;
-				unsigned mask = 1U<<(rp-reserved);
+				unsigned mask = 1U<<count;
 				if (!(reported & mask)) {
 					reported |= mask;
 					dprintf(1, "\t%s => %s (%p)\n",
