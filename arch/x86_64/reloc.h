@@ -1,4 +1,5 @@
 #define LDSO_ARCH "x86_64"
+#define LDSO_ARCH_ALT "x86-64"
 
 #define REL_SYMBOLIC    R_X86_64_64
 #define REL_OFFSET32    R_X86_64_PC32

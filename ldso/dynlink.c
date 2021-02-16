@@ -1010,6 +1010,9 @@ static struct dso *load_library(const char *name, struct dso *needed_by)
 	    (name[0]=='l' && name[1]=='d' && name[2]=='-')) {
 		unsigned count = 0;
 		static const char reserved[] =
+#ifdef LDSO_ARCH_ALT
+			"ld-linux-" LDSO_ARCH_ALT "."
+#endif
 			"libc.libpthread.librt.libm.libdl.libutil.libxnet.ld-linux.ld-linux-" LDSO_ARCH ".";
 		const char *rp, *next;
 		for (rp=reserved; *rp; rp=next, count++) {
