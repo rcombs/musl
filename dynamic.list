@@ -45,4 +45,6 @@ __progname;
 __progname_full;
 
 __stack_chk_guard;
+
+_dl_debug_state;
 };

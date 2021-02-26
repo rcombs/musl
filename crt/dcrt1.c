@@ -67,6 +67,9 @@ static inline int crt_mprotect(void *addr, size_t len, int prot)
 #define crt_access(filename, amode) __syscall(SYS_faccessat, AT_FDCWD, filename, amode, 0)
 #endif
 
+__attribute__((__visibility__("default")))
+void _dl_debug_state(void) {}
+
 static void *crt_memcpy(void *restrict dest, const void *restrict src, size_t n)
 {
 	unsigned char *d = dest;

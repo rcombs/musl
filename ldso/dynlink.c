@@ -2007,7 +2007,7 @@ void __dls3(size_t *sp, size_t *auxv)
 	runtime = 1;
 
 	debug.ver = 1;
-	debug.bp = dl_debug_state;
+	debug.bp = _dl_debug_state;
 	debug.head = head;
 	debug.base = ldso.base;
 	debug.state = RT_CONSISTENT;
