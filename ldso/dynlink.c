@@ -80,6 +80,7 @@ struct dso {
 	char mark;
 	char bfs_built;
 	char runtime_loaded;
+	char symbolic;
 	struct dso **deps, *needed_by;
 	size_t ndeps_direct;
 	size_t next_dep;
@@ -334,6 +335,15 @@ static struct symdef find_sym(struct dso *dso, const char *s, int need_def)
 	return find_sym2(dso, s, need_def, 0);
 }
 
+static struct symdef find_sym_fb(struct dso *dso1, struct dso *dso2, const char *s, int need_def)
+{
+	struct symdef ret;
+	ret = find_sym(dso1, s, need_def);
+	if (ret.sym || !dso2)
+		return ret;
+	return find_sym(dso2, s, need_def);
+}
+
 static void do_relocs(struct dso *dso, size_t *rel, size_t rel_size, size_t stride)
 {
 	unsigned char *base = dso->base;
@@ -341,7 +351,7 @@ static void do_relocs(struct dso *dso, size_t *rel, size_t rel_size, size_t stri
 	char *strings = dso->strings;
 	Sym *sym;
 	const char *name;
-	void *ctx;
+	void *ctx, *ctx2;
 	int type;
 	int sym_index;
 	struct symdef def;
@@ -350,6 +360,7 @@ static void do_relocs(struct dso *dso, size_t *rel, size_t rel_size, size_t stri
 	size_t tls_val;
 	size_t addend;
 	int skip_relative = 0, reuse_addends = 0, save_slot = 0;
+	int symbolic = dso->symbolic;
 
 	if (dso == &ldso) {
 		/* Only ldso's REL table needs addend saving/reuse. */
@@ -363,6 +374,7 @@ static void do_relocs(struct dso *dso, size_t *rel, size_t rel_size, size_t stri
 		type = R_TYPE(rel[1]);
 		if (type == REL_NONE) continue;
 		reloc_addr = laddr(dso, rel[0]);
+		ctx2 = NULL;
 
 		if (stride > 2) {
 			addend = rel[2];
@@ -384,9 +396,13 @@ static void do_relocs(struct dso *dso, size_t *rel, size_t rel_size, size_t stri
 			sym = syms + sym_index;
 			name = strings + sym->st_name;
 			ctx = type==REL_COPY ? head->syms_next : head;
+			if (symbolic && type != REL_COPY) {
+				ctx2 = ctx;
+				ctx = dso;
+			}
 			def = (sym->st_info>>4) == STB_LOCAL
 				? (struct symdef){ .dso = dso, .sym = sym }
-				: find_sym(ctx, name, type==REL_PLT);
+				: find_sym_fb(ctx, ctx2, name, type==REL_PLT);
 			if (!def.sym && (sym->st_shndx != SHN_UNDEF
 			    || sym->st_info>>4 != STB_WEAK)) {
 				if (dso->lazy && (type==REL_PLT || type==REL_GOT)) {
@@ -923,6 +939,10 @@ static void decode_dyn(struct dso *p)
 		p->rpath_orig = p->strings + dyn[DT_RUNPATH];
 	if (dyn[0]&(1<<DT_PLTGOT))
 		p->got = laddr(p, dyn[DT_PLTGOT]);
+	if (dyn[0]&(1<<DT_SYMBOLIC))
+		p->symbolic = 1;
+	if (dyn[0]&(1<<DT_FLAGS))
+		p->symbolic = !!(dyn[DT_FLAGS] & DF_SYMBOLIC);
 	if (search_vec(p->dynv, dyn, DT_GNU_HASH))
 		p->ghashtab = laddr(p, *dyn);
 	if (search_vec(p->dynv, dyn, DT_VERSYM))
@@ -2123,6 +2143,10 @@ void *__dlopen(const char *file, int mode, void *ra)
 		goto end;
 	}
 
+
+	if (mode & RTLD_DEEPBIND)
+		p->symbolic = 1;
+
 	/* First load handling */
 	load_deps(p);
 	extend_bfs_deps(p);
@@ -2225,8 +2249,16 @@ void *dlopen(const char *file, int mode)
 static void *do_dlsym(struct dso *p, const char *s, void *ra)
 {
 	int use_deps = 0;
-	if (p == head || p == RTLD_DEFAULT) {
+	struct dso *p2 = NULL;
+	if (p == head) {
 		p = head;
+	} else if (p == RTLD_DEFAULT) {
+		struct dso *caller = addr2dso((size_t)ra);
+		p = head;
+		if (caller && caller->symbolic) {
+			p2 = p;
+			p = caller;
+		}
 	} else if (p == RTLD_NEXT) {
 		p = addr2dso((size_t)ra);
 		if (!p) p=head;
@@ -2236,6 +2268,8 @@ static void *do_dlsym(struct dso *p, const char *s, void *ra)
 	} else
 		use_deps = 1;
 	struct symdef def = find_sym2(p, s, 0, use_deps);
+	if (!def.sym && p2)
+		def = find_sym2(p2, s, 0, use_deps);
 	if (!def.sym) {
 		error("Symbol not found: %s", s);
 		return 0;
