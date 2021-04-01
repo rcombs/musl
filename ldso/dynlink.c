@@ -2043,7 +2043,9 @@ static void prepare_lazy(struct dso *p)
 	lazy_head = p;
 }
 
-void *dlopen(const char *file, int mode)
+static void *addr2dso(size_t a);
+
+void *__dlopen(const char *file, int mode, void *ra)
 {
 	struct dso *volatile p, *orig_tail, *orig_syms_tail, *orig_lazy_head, *next;
 	struct tls_module *orig_tls_tail;
@@ -2052,8 +2054,12 @@ void *dlopen(const char *file, int mode)
 	int cs;
 	jmp_buf jb;
 	struct dso **volatile ctor_queue = 0;
+	struct dso *needed_by;
 
 	if (!file) return head;
+
+	needed_by = addr2dso((size_t)ra);
+	if (!needed_by) needed_by = head;
 
 	pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &cs);
 	pthread_rwlock_wrlock(&lock);
@@ -2107,7 +2113,7 @@ void *dlopen(const char *file, int mode)
 		tail->next = 0;
 		p = 0;
 		goto end;
-	} else p = load_library(file, head);
+	} else p = load_library(file, needed_by);
 
 	if (!p) {
 		error(noload ?
@@ -2209,6 +2215,11 @@ static void *addr2dso(size_t a)
 		}
 	}
 	return 0;
+}
+
+void *dlopen(const char *file, int mode)
+{
+	return __dlopen(file, mode, __builtin_extract_return_addr (__builtin_return_address (0)));
 }
 
 static void *do_dlsym(struct dso *p, const char *s, void *ra)
