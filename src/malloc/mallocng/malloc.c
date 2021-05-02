@@ -305,6 +305,11 @@ void *malloc(size_t n)
 	int idx;
 	int ctr;
 
+	// Some software seems to assume it can always write at least some data to any malloc
+	// (e.g. libcuda.so.440.82)
+	if (n == 0)
+		n = 8;
+
 	if (n >= MMAP_THRESHOLD) {
 		size_t needed = n + IB + UNIT;
 		void *p = mmap(0, needed, PROT_READ|PROT_WRITE,
