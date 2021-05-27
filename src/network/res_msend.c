@@ -46,6 +46,8 @@ int __res_msend_rc(int nqueries, const unsigned char *const *queries,
 	int cs;
 	struct pollfd pfd;
 	unsigned long t0, t1, t2;
+	int got_servfail = 0;
+	int got_answer = 0;
 
 	pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &cs);
 
@@ -154,10 +156,13 @@ int __res_msend_rc(int nqueries, const unsigned char *const *queries,
 			case 3:
 				break;
 			case 2:
-				if (servfail_retry && servfail_retry--)
+				if (servfail_retry && servfail_retry--) {
+					if (got_servfail++ && got_answer)
+						break;
 					sendto(fd, queries[i],
 						qlens[i], MSG_NOSIGNAL,
 						(void *)&ns[j], sl);
+				}
 			default:
 				continue;
 			}
@@ -169,6 +174,8 @@ int __res_msend_rc(int nqueries, const unsigned char *const *queries,
 				for (; next<nqueries && alens[next]; next++);
 			else
 				memcpy(answers[i], answers[next], rlen);
+
+			got_answer = 1;
 
 			if (next == nqueries) goto out;
 		}

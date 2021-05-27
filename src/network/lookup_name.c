@@ -162,14 +162,21 @@ static int name_from_dns(struct address buf[static MAXADDRS], char canon[static 
 	if (__res_msend_rc(nq, qp, qlens, ap, alens, sizeof *abuf, conf) < 0)
 		return EAI_SYSTEM;
 
+	int got_success = 0;
 	for (i=0; i<nq; i++) {
-		if (alens[i] < 4 || (abuf[i][3] & 15) == 2) return EAI_AGAIN;
+		if (alens[i] < 4 || (abuf[i][3] & 15) == 2) continue;
 		if ((abuf[i][3] & 15) == 3) return 0;
 		if ((abuf[i][3] & 15) != 0) return EAI_FAIL;
+		got_success = 1;
 	}
 
-	for (i=0; i<nq; i++)
-		__dns_parse(abuf[i], alens[i], dns_parse_callback, &ctx);
+	if (!got_success)
+		return EAI_AGAIN;
+
+	for (i=0; i<nq; i++) {
+		if (alens[i] >= 4 && (abuf[i][3] & 15) == 0)
+			__dns_parse(abuf[i], alens[i], dns_parse_callback, &ctx);
+	}
 
 	if (ctx.cnt) return ctx.cnt;
 	return EAI_NONAME;
