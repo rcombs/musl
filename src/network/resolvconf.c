@@ -86,6 +86,9 @@ no_resolv_conf:
 	if (!nns) {
 		__lookup_ipliteral(conf->ns, "127.0.0.1", AF_UNSPEC);
 		nns = 1;
+		const char *fallback = getenv("FALLBACK_NAMESERVER");
+		if (__lookup_ipliteral(conf->ns, "127.0.0.1", AF_UNSPEC) > 0)
+			nns++;
 	}
 
 	conf->nns = nns;
