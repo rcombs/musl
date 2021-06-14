@@ -84,8 +84,9 @@ int __get_resolv_conf(struct resolvconf *conf, char *search, size_t search_sz)
 
 no_resolv_conf:
 	if (!nns) {
-		__lookup_ipliteral(conf->ns, "127.0.0.1", AF_UNSPEC);
-		nns = 1;
+		__lookup_ipliteral(conf->ns, "127.0.0.1", AF_UNSPEC); // Standard
+		__lookup_ipliteral(conf->ns, "127.0.0.53", AF_UNSPEC); // systemd-resolved
+		nns = 2;
 		const char *fallback = getenv("FALLBACK_NAMESERVER");
 		if (__lookup_ipliteral(conf->ns, "127.0.0.1", AF_UNSPEC) > 0)
 			nns++;
