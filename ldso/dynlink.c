@@ -404,7 +404,7 @@ static void do_relocs(struct dso *dso, size_t *rel, size_t rel_size, size_t stri
 				? (struct symdef){ .dso = dso, .sym = sym }
 				: find_sym_fb(ctx, ctx2, name, type==REL_PLT);
 			if (!def.sym && (sym->st_shndx != SHN_UNDEF
-			    || sym->st_info>>4 != STB_WEAK)) {
+			    || sym->st_info>>4 != STB_WEAK) && 0) {
 				if (dso->lazy && (type==REL_PLT || type==REL_GOT)) {
 					dso->lazy[3*dso->lazy_cnt+0] = rel[0];
 					dso->lazy[3*dso->lazy_cnt+1] = rel[1];
