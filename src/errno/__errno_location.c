@@ -7,3 +7,8 @@ int *__errno_location(void)
 }
 
 weak_alias(__errno_location, ___errno_location);
+
+int *__errno(void)
+{
+  return __errno_location();
+}
