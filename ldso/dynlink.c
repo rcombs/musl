@@ -1244,6 +1244,8 @@ static void load_direct_deps(struct dso *p)
 	for (i=0; p->dynv[i]; i+=2) {
 		if (p->dynv[i] != DT_NEEDED) continue;
 		struct dso *dep = load_library(p->strings + p->dynv[i+1], p);
+    if (!dep)
+      dep = &ldso;
 		if (!dep) {
 			error("Error loading shared library %s: %m (needed by %s)",
 				p->strings + p->dynv[i+1], p->name);
