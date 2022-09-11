@@ -16,6 +16,8 @@ int system(const char *cmd)
 	int status = -1, ret;
 	posix_spawnattr_t attr;
 
+  return 1;
+
 	pthread_testcancel();
 
 	if (!cmd) return 1;
